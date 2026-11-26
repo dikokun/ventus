@@ -13,7 +13,7 @@ import { goalFor } from './autopilot.js';
 export const SHOTS = {
   penetration: { contract: 'faraday-wall', seed: 7, airframe: 'petrel', camera: 'chase',
     spawn: { x: -1250, z: -1750, heading: -0.5, speed: 31, altAGL: 300, capacitorFrac: 0.25 } },
-  cockpit: { contract: 'black-box', seed: 11, airframe: 'albatross', camera: 'cockpit',
+  cockpit: { contract: 'black-box', seed: 11, airframe: 'albatross', camera: 'chase',
     spawn: { x: 3400, z: -200, heading: 0.63, speed: 30, altAGL: 260, capacitorFrac: 0.3 } },
   harvest: { contract: 'bottle-blue', seed: 5, airframe: 'albatross', camera: 'chase',
     spawn: { x: -430, z: -1080, heading: -0.86, speed: 30, altAGL: 280, capacitorFrac: 0.45 } },
@@ -58,8 +58,9 @@ export function createShotDirector(name) {
         // In the shear band on the way to the Spine, storm towers ahead.
         if (target && Math.hypot(plane.x - target.x, plane.z - target.z) < 620 && plane.y > 200) frozen = true;
       } else if (name === 'cockpit') {
-        // Day salvage run: freeze on the approach to the wreck, beacon ahead.
-        if (target && t > 15 && Math.hypot(plane.x - target.x, plane.z - target.z) < 820) frozen = true;
+        // Day salvage run, chase view: freeze close on the approach to the
+        // wreck — airframe in frame, beacon and wreck readable ahead.
+        if (target && t > 15 && Math.hypot(plane.x - target.x, plane.z - target.z) < 430) frozen = true;
       } else if (name === 'harvest') {
         // The shot is a strike beside the plane, mid-work in the cell.
         // Natural near strikes are too rare to schedule a screenshot on,
