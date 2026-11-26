@@ -76,9 +76,11 @@ export function stepPlane(state, craft, input, dt, env) {
       ev.push({ type: 'liftoff' });
     } else if (state.hasAirborne) {
       // Rolling out after a touchdown; a pilot holding throttle rolls on.
-      if (state.groundSpeed < 0.4 && input.throttle < 0.05) { state.stopped = true; ev.push({ type: 'stopped' }); }
-    } else if (state.groundSpeed < 0.4 && state.throttle < 0.05) {
-      state.stopped = true; ev.push({ type: 'stopped' });
+      if (state.groundSpeed < 0.4 && input.throttle < 0.05) { state.stopped = true; ev.push({ type: 'stopped', overPad: !!env.overPad }); }
+    } else if (state.groundSpeed < 0.4 && input.throttle < 0.05) {
+      // Parked before first takeoff: judged on the COMMANDED throttle, so a
+      // spooling-up pilot is never false-stopped.
+      state.stopped = true; ev.push({ type: 'stopped', overPad: !!env.overPad });
     }
     return ev;
   }
@@ -108,8 +110,8 @@ export function stepPlane(state, craft, input, dt, env) {
 
   // Shear: crossing a lane fast and banked wrong taxes the hull and shakes.
   state.buffet = env.shear * clamp(state.speed / 45, 0.3, 1.4);
-  if (env.shear > 0.34) {
-    const dmg = STORM.shearDamage * (env.shear - 0.3) * clamp(state.speed / 40, 0.4, 1.6) * dt;
+  if (env.shear > 0.45) {
+    const dmg = STORM.shearDamage * (env.shear - 0.42) * clamp(state.speed / 40, 0.4, 1.6) * dt;
     if (dmg > 0) { state.damage = Math.min(120, state.damage + dmg); ev.push({ type: 'shear-hit', amount: dmg }); }
   }
   // Self-sealing composites work only in calm air.

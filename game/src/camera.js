@@ -21,14 +21,20 @@ export function createCamera(rig) {
       const sx = (Math.sin(t * 61) + Math.sin(t * 47)) * 0.5 * shake;
       const sy = (Math.cos(t * 53) + Math.sin(t * 71)) * 0.5 * shake;
       if (mode === 'cockpit') {
-        cam.position.set(state.x + sx * 0.2, state.y + 4.1 + sy * 0.2, state.z);
-        look.set(state.x + fx * 120, state.y + 4.1 - 9 + state.pitch * 60, state.z + fz * 120);
+        // At the nose, ahead of the canopy: the pilot's head position sits
+        // inside the fuselage mesh and filled the frame with a dark slab.
+        // From the nose the spine, cowling and wingtips frame the world.
+        cam.position.set(state.x + fx * 7.5 + sx * 0.2, state.y + 4.6 + sy * 0.2, state.z + fz * 7.5);
+        look.set(state.x + fx * 120, state.y + 4.6 - 10 + state.pitch * 60, state.z + fz * 120);
         cam.up.set(Math.sin(-state.roll) * 0.55, Math.cos(state.roll * 0.55), 0);
         cam.lookAt(look);
         return;
       }
-      const back = 26, up = 8.5;
-      const want = new THREE.Vector3(state.x - fx * back + sx, state.y + up + sy, state.z - fz * back);
+      const back = 19, up = 6.6;
+      // Slight right offset: a dead-astern chase makes the airframe read
+      // as a flat wing bar; three-quarter rear gives it dimension.
+      const rx = -fz, rz = fx;
+      const want = new THREE.Vector3(state.x - fx * back + rx * 3.2 + sx, state.y + up + sy, state.z - fz * back + rz * 3.2);
       if (!init) { pos.copy(want); init = true; }
       pos.lerp(want, 1 - Math.pow(0.001, dt));
       cam.position.copy(pos);

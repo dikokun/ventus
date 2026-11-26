@@ -101,6 +101,15 @@ function startSortie(contract, opts = {}) {
   scene.add(built.group);
   const from = padById(contract.from);
   plane = createPlaneState(craft, from.x, from.z, 0, heightAt(from.x, from.z));
+  if (opts.spawn) {
+    const sp = opts.spawn;
+    plane.x = sp.x; plane.z = sp.z; plane.heading = sp.heading;
+    plane.y = heightAt(sp.x, sp.z) + sp.altAGL;
+    plane.speed = sp.speed; plane.groundSpeed = sp.speed;
+    plane.airborne = true; plane.hasAirborne = true; plane.onGround = false;
+    plane.throttle = 0.7;
+    plane.capacitor = craft.capacitor * (sp.capacitorFrac ?? 0);
+  }
   sortie = createSortie(contract, opts.seed ?? (Date.now() % 100000));
   storm = createStorm(mulberry32((opts.seed ?? 7) * 31 + 5));
   drones = contract.type === 'defense' ? createDrones(contract, mulberry32(99), padById('mercy')) : [];
@@ -108,7 +117,10 @@ function startSortie(contract, opts = {}) {
   buildDroneMeshes();
   props.set(sortie);
   world.setTimeOfDay(contract.time);
-  prevCap = 0; said = new Set(); elapsed = 0; frozen = false;
+  // Seed the harvest baseline from the spawned state: a staged spawn starts
+  // with charge aboard, and counting that jump as harvested completed the
+  // bottle-blue objective on the first frame of every staged harvest shot.
+  prevCap = plane.capacitor; said = new Set(); elapsed = 0; frozen = false;
   pilot.reset();
   mode = 'fly';
   document.body.className = 'flying' + (contract.type === 'defense' ? ' armed' : '');
@@ -259,6 +271,7 @@ function step(dt) {
     deployRate: craft.id === 'albatross' ? 1.8 : 1,
     paintRate: craft.paintRate ?? 1,
     dronesDown: sortie.dronesDown, breaches: sortie.breaches,
+    holdSpeed: stallSpeed(plane, craft) + 14,
   });
   for (const e of mEv) {
     if (e.type === 'node') { audio.clunk(); hud.say('Array ' + sortie.nodesDone + ' of ' + sortie.contract.nodes + ' planted.'); }
@@ -339,7 +352,7 @@ if (shotName === 'hangar') {
 } else if (shotName) {
   director = createShotDirector(shotName);
   startSortie(director.contract, {
-    seed: director.seed, camera: director.cameraMode,
+    seed: director.seed, camera: director.cameraMode, spawn: director.spawn,
     airframeId: director.name === 'penetration' ? 'petrel' : 'albatross',
     tiers: { propulsion: 1, capacitor: 1 },
   });
@@ -360,7 +373,14 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (mode === 'fly' && !frozen && plane) step(dt);
+  if (mode === 'fly' && !frozen && plane) {
+    // Staged shots warp: headless capture coalesces animation frames, so a
+    // one-step-per-frame sim only advances a second or two before the
+    // shutter. Thirty fixed steps per frame let the director reach its
+    // composed moment (this is how the v1 staging worked too).
+    if (director) { for (let i = 0; i < 45 && !frozen; i++) step(1 / 30); }
+    else step(dt);
+  }
   else if (mode === 'menu' && plane && built) {
     // Slow drift around the parked frame behind the hangar glass.
     world.update(dt, now / 1000, plane, 0);

@@ -132,7 +132,7 @@ export function updateSortie(s, plane, dt, ctx = {}) {
   if (c.type === 'deploy') {
     const n = s.nodes.find(n => !n.done);
     if (n) {
-      const near = dist2(plane, n) < 85 && Math.abs(plane.y - n.y) < 65 && plane.speed < 27 && plane.airborne;
+      const near = dist2(plane, n) < 110 && Math.abs(plane.y - n.y) < 88 && plane.speed < (ctx.holdSpeed ?? 34) && plane.airborne;
       s.holdT = near ? s.holdT + dt * (ctx.deployRate ?? 1) : Math.max(0, s.holdT - dt * 2);
       if (s.holdT >= c.holdSec) {
         n.done = true; s.nodesDone++; s.holdT = 0;
@@ -142,7 +142,7 @@ export function updateSortie(s, plane, dt, ctx = {}) {
     }
   } else if (c.type === 'harvest') {
     if (!c.deliver && s.harvested >= c.quotaMJ) finish();
-    if (c.deliver && plane.capacitor >= c.quotaMJ && !s._fullRadio) { s._fullRadio = true; ev.push({ type: 'tank-full' }); }
+    if (c.deliver && plane.capacitor >= c.quotaMJ) { ev.push({ type: 'tank-full' }); finish(); }
   } else if (c.type === 'contain') {
     const a = s.anomaly;
     a.x = a.baseX + Math.sin(s.t * 0.11) * 130;
@@ -169,7 +169,7 @@ export function updateSortie(s, plane, dt, ctx = {}) {
   } else if (c.type === 'salvage') {
     const b = s.boxes.find(b => !b.done);
     if (b) {
-      const near = dist2(plane, b) < 60 && plane.y - b.y < 48 && plane.speed < 20 && plane.airborne;
+      const near = dist2(plane, b) < 95 && plane.y - b.y < 88 && plane.speed < (ctx.holdSpeed ?? 26) && plane.airborne;
       s.holdT = near ? s.holdT + dt : 0;
       if (s.holdT >= 3) {
         b.done = true; s.boxesGot++; s.holdT = 0;
@@ -207,10 +207,10 @@ export function updateSortie(s, plane, dt, ctx = {}) {
     if (s.bossPhase === 1) {
       if (dCentre < 210 && plane.airborne) { s.bossPhase = 2; ev.push({ type: 'phase', n: 2 }); }
     } else {
-      if (dCentre < 210) s.keptSec += dt;
+      if (dCentre < 250) s.keptSec += dt;
       const a = s.anchors.find(a => !a.done);
       if (a) {
-        const near = Math.hypot(plane.x - a.x, plane.z - a.z) < 70 && Math.abs(plane.y - a.y) < 60 && plane.speed < 30;
+        const near = Math.hypot(plane.x - a.x, plane.z - a.z) < 120 && Math.abs(plane.y - a.y) < 88 && plane.speed < (ctx.holdSpeed ?? 36);
         s.holdT = near ? s.holdT + dt : Math.max(0, s.holdT - dt * 2);
         if (s.holdT >= 3) { a.done = true; s.spearsDone++; s.holdT = 0; ev.push({ type: 'spear', at: a }); }
       }

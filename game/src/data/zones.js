@@ -111,7 +111,9 @@ export const STORM_CELLS = [
   { id: 'eye', name: 'The Unblinking Eye', x: 0, z: -4300, r: 950, strength: 1.0, eye: true },
 ];
 // Shear exposure at a point: 0 in calm air, up to ~1.2 in a cell's band.
-export function shearAt(x, z, t) {
+// Shear lives low: above ~800 m AGL it fades to a quarter — altitude is the
+// pilot's safe road between cells.
+export function shearAt(x, z, t, agl = 0) {
   let s = 0;
   for (const c of STORM_CELLS) {
     const d = Math.hypot(x - c.x, z - c.z);
@@ -127,7 +129,8 @@ export function shearAt(x, z, t) {
   }
   // Transition rotor streets: mild, everywhere in the band.
   if (z < 800 && z > -700) s = Math.max(s, 0.16 + 0.05 * Math.sin(x * 0.001 + t * 0.4));
-  return s;
+  const fade = Math.max(0.25, Math.min(1, 1.2 - agl / 750));
+  return s * fade;
 }
 // Lightning activity 0..1 at a point (drives harvest + flashes).
 export function chargeAt(x, z) {

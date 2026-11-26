@@ -18,7 +18,7 @@ export const FLIGHT = {
 };
 
 export const STORM = {
-  shearDamage: 2.6,     // hull %/s at shear 1.0 when fast and misaligned
+  shearDamage: 1.15,    // hull %/s at shear 1.0 when fast and misaligned
   iceRate: 0.011,       // ice fraction/s deep in a cell
   iceStallRise: 7,      // m/s added to stall speed at full ice
   strikeArcDamage: 9,   // hull % when a strike arcs over a full capacitor
@@ -33,8 +33,8 @@ export const ECONOMY = {
 };
 
 export const TIMES = {
-  dawn: { sky: 0xcfd8e6, fog: 0xd8cfc0, sun: 0xffe3b3, sunI: 0.95, amb: 0.55, fogNear: 2600, fogFar: 9000 },
-  day: { sky: 0x9fc3e8, fog: 0xc3d5e8, sun: 0xfff2d8, sunI: 1.25, amb: 0.7, fogNear: 3200, fogFar: 11000 },
-  dusk: { sky: 0x5a4a6e, fog: 0x8a6a7a, sun: 0xff9a4d, sunI: 0.9, amb: 0.42, fogNear: 2200, fogFar: 8000 },
-  night: { sky: 0x0a1428, fog: 0x101c33, sun: 0x8fb4ff, sunI: 0.35, amb: 0.3, fogNear: 1600, fogFar: 6500 },
+  dawn: { sky: 0xcfd8e6, fog: 0xd8cfc0, sun: 0xffe3b3, sunI: 1.0, amb: 0.75, fogNear: 2600, fogFar: 9000 },
+  day: { sky: 0x9fc3e8, fog: 0xc3d5e8, sun: 0xfff2d8, sunI: 1.3, amb: 0.95, fogNear: 3200, fogFar: 11000 },
+  dusk: { sky: 0x6a5578, fog: 0x9a7a86, sun: 0xff9a4d, sunI: 0.95, amb: 0.62, fogNear: 2200, fogFar: 8500 },
+  night: { sky: 0x14203a, fog: 0x1a2c47, sun: 0x8fb4ff, sunI: 0.55, amb: 0.52, fogNear: 1600, fogFar: 7000 },
 };

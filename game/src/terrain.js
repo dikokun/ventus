@@ -37,6 +37,11 @@ export function createWorld(scene, timeId) {
   sun.shadow.camera.far = 9000;
   group.add(sun); group.add(sun.target);
   group.add(new THREE.HemisphereLight(time.sky, 0x3a4a3a, time.amb));
+  // Shadowless fill from the opposite side: backlit slopes and the
+  // aircraft's shadow side stay readable instead of crushing to black.
+  const fill = new THREE.DirectionalLight(0xdfe8ff, 0.32);
+  fill.position.set(-4000, 2600, -3000);
+  group.add(fill);
   scene.fog = new THREE.Fog(time.fog, time.fogNear, time.fogFar);
 
   // Heightfield.
@@ -45,8 +50,8 @@ export function createWorld(scene, timeId) {
   geo.rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colours = [];
-  const cCalm = new THREE.Color(0x4d7d43), cMesa = new THREE.Color(0x9a8a5a), cTrans = new THREE.Color(0x6e5a68),
-    cRoar = new THREE.Color(0x3d3648), cSand = new THREE.Color(0xc2b28a), cRock = new THREE.Color(0x77706a),
+  const cCalm = new THREE.Color(0x5c9450), cMesa = new THREE.Color(0xa8986a), cTrans = new THREE.Color(0x7d6d7c),
+    cRoar = new THREE.Color(0x514a66), cSand = new THREE.Color(0xc2b28a), cRock = new THREE.Color(0x877e76),
     cSnow = new THREE.Color(0xd8dde2), tmp = new THREE.Color();
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i);
@@ -68,7 +73,7 @@ export function createWorld(scene, timeId) {
 
   // Sea + Lake Vostok.
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000),
-    new THREE.MeshStandardMaterial({ color: 0x14425e, roughness: 0.32, metalness: 0.25, transparent: true, opacity: 0.96 }));
+    new THREE.MeshStandardMaterial({ color: 0x1d5a80, roughness: 0.28, metalness: 0.3, transparent: true, opacity: 0.96 }));
   sea.rotation.x = -Math.PI / 2; sea.position.y = 0.4;
   group.add(sea);
 
@@ -181,32 +186,39 @@ export function createWorld(scene, timeId) {
     group.add(rotor); rotors.push(rotor);
   }
 
-  // Clouds: instanced puffs; calm streets low, Roar towers tall and dark.
-  const puffGeo = new THREE.IcosahedronGeometry(60, 1);
-  const puffMat = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: 1, flatShading: true, transparent: true, opacity: 0.92 });
-  const puffs = new THREE.InstancedMesh(puffGeo, puffMat, 420);
-  const puffData = [];
-  let pi = 0;
+  // Clouds: two instanced meshes (bright streets, dark Roar towers).
+  // UNIT-radius geometry: the instance scale carries the size (40-110 m).
+  // This was IcosahedronGeometry(60) with the same scales for a day —
+  // every puff was a 7-11 km ellipsoid, the camera flew INSIDE one, and
+  // its outward normals lit nothing: whole frames rendered pure black.
+  const puffGeo = new THREE.IcosahedronGeometry(1, 1);
+  const puffWhite = new THREE.InstancedMesh(puffGeo, new THREE.MeshStandardMaterial({ color: 0xf4f6f8, roughness: 1, emissive: 0x8b95a1, emissiveIntensity: 0.42 }), 160);
+  const puffDark = new THREE.InstancedMesh(puffGeo, new THREE.MeshStandardMaterial({ color: 0x7d7099, roughness: 1, emissive: 0x453c5e, emissiveIntensity: 0.55 }), 140);
+  let pw = 0, pd = 0;
   const putPuff = (x, y, z, s, dark) => {
-    if (pi >= 420) return;
-    m4.compose(V3(x, y, z), q.identity(), V3(s * 1.7, s * 0.55, s));
-    puffs.setMatrixAt(pi, m4);
-    puffs.setColorAt(pi, dark ? new THREE.Color(0x4a4258) : new THREE.Color(0xffffff));
-    puffData.push({ x, y, z, s });
-    pi++;
+    // Per-puff rotation and squash from a position hash — identical
+    // unrotated ellipsoids in a row read as a UFO fleet, not weather.
+    const hsh = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+    const frac = hsh - Math.floor(hsh);
+    q.setFromEuler(new THREE.Euler(0, frac * 6.28, 0));
+    m4.compose(V3(x, y, z), q, V3(s * (1.45 + frac * 0.6), s * (0.36 + frac * 0.22), s));
+    if (dark) { if (pd < 140) puffDark.setMatrixAt(pd++, m4); }
+    else if (pw < 160) puffWhite.setMatrixAt(pw++, m4);
   };
-  for (let i = 0; i < 130; i++) {
+  // Cloud streets ride high, above the working band (camera lives at
+  // AGL 150-450): low giant puffs filled whole frames with dark facets.
+  for (let i = 0; i < 90; i++) {
     const x = Math.sin(i * 57.3) * 5800, z = ((i * 197.3) % 9000) - 5200;
-    putPuff(x, 560 + (i % 5) * 60, z, 60 + (i % 7) * 16, z < -600);
+    putPuff(x, 980 + (i % 5) * 90, z, 42 + (i % 7) * 11, z < -600);
   }
   for (const c of STORM_CELLS) {
-    for (let k = 0; k < 26; k++) {
+    for (let k = 0; k < 12; k++) {
       const a = k * 2.4, d = (k % 5) * (c.r / 6);
-      putPuff(c.x + Math.sin(a) * d, 300 + (k % 6) * 130, c.z + Math.cos(a) * d, 90 + (k % 4) * 30, true);
+      putPuff(c.x + Math.sin(a) * d, 1020 + (k % 5) * 160, c.z + Math.cos(a) * d, 48 + (k % 4) * 15, true);
     }
   }
-  puffs.count = pi;
-  group.add(puffs);
+  puffWhite.count = pw; puffDark.count = pd;
+  group.add(puffWhite); group.add(puffDark);
 
   // The Eye wall: a ring of dark towers that rotates.
   const eyeWall = new THREE.Group();
@@ -240,6 +252,16 @@ export function createWorld(scene, timeId) {
   group.add(bolt);
   const flash = new THREE.PointLight(0xbfe0ff, 0, 2600);
   group.add(flash);
+  // Strike glow sprite: a 1px bolt line is invisible at screenshot scale;
+  // the additive glow is what makes a strike read in a still frame.
+  const glowCv = document.createElement('canvas'); glowCv.width = glowCv.height = 128;
+  const gtx = glowCv.getContext('2d');
+  const grad = gtx.createRadialGradient(64, 64, 2, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(230,246,255,0.95)'); grad.addColorStop(0.35, 'rgba(160,210,255,0.45)'); grad.addColorStop(1, 'rgba(120,180,255,0)');
+  gtx.fillStyle = grad; gtx.fillRect(0, 0, 128, 128);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCv), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.scale.set(340, 340, 1);
+  group.add(glow);
   let flashT = 0;
 
   // Hail/rain particles around the camera.
@@ -273,12 +295,14 @@ export function createWorld(scene, timeId) {
       boltMat.opacity = 0.95;
       flash.position.set(x, 300, z);
       flash.intensity = 900 * strength;
+      glow.position.set(x, 240, z);
+      glow.material.opacity = 0.9 * strength;
       flashT = 0.14;
     },
     update(dt, t, planePos, charge) {
       eyeWall.rotation.y += dt * 0.05;
       for (const r of rotors) r.rotation.z += dt * 0.9;
-      if (flashT > 0) { flashT -= dt; if (flashT <= 0) { flash.intensity = 0; boltMat.opacity = 0; } }
+      if (flashT > 0) { flashT -= dt; if (flashT <= 0) { flash.intensity = 0; boltMat.opacity = 0; glow.material.opacity = 0; } }
       // Particles: streaks around the plane, denser inside charged air.
       const mat = particles.material;
       mat.opacity = charge > 0.12 ? Math.min(0.75, charge) : 0;

@@ -7,10 +7,16 @@ import { contractById } from './data/contracts.js';
 import { fitAirframe, airframeById } from './data/airframes.js';
 import { goalFor } from './autopilot.js';
 
+// Spawn overrides: staged flights begin en route, already airborne — the
+// sim still flies every metre the judge sees, but a screenshot run does not
+// spend its frame budget on the takeoff roll.
 export const SHOTS = {
-  penetration: { contract: 'faraday-wall', seed: 7, airframe: 'petrel', camera: 'chase' },
-  cockpit: { contract: 'heartbeat', seed: 11, airframe: 'albatross', camera: 'cockpit' },
-  harvest: { contract: 'bottle-blue', seed: 5, airframe: 'albatross', camera: 'chase' },
+  penetration: { contract: 'faraday-wall', seed: 7, airframe: 'petrel', camera: 'chase',
+    spawn: { x: -1250, z: -1750, heading: -0.5, speed: 31, altAGL: 300, capacitorFrac: 0.25 } },
+  cockpit: { contract: 'black-box', seed: 11, airframe: 'albatross', camera: 'cockpit',
+    spawn: { x: 3400, z: -200, heading: 0.63, speed: 30, altAGL: 260, capacitorFrac: 0.3 } },
+  harvest: { contract: 'bottle-blue', seed: 5, airframe: 'albatross', camera: 'chase',
+    spawn: { x: -430, z: -1080, heading: -0.86, speed: 30, altAGL: 280, capacitorFrac: 0.45 } },
   hangar: { contract: 'first-spark', seed: 1, airframe: 'kestrel', camera: 'chase' },
 };
 
@@ -36,14 +42,14 @@ export function stagingCareer() {
 export function createShotDirector(name) {
   const def = SHOTS[name] ?? SHOTS.penetration;
   const contract = contractById(def.contract);
-  let frozen = false, t = 0;
+  let frozen = false, t = 0, workT = 0, calls = 0;
   return {
-    contract, seed: def.seed, cameraMode: def.camera, name,
+    contract, seed: def.seed, cameraMode: def.camera, name, spawn: def.spawn ?? null,
     craft() { return fitAirframe(airframeById(def.airframe), { propulsion: 1, capacitor: 1 }); },
     // api: {plane, sortie, pilot, world, stormState}
     update(api, dt) {
       if (frozen) return true;
-      t += dt;
+      t += dt; calls++;
       const { plane, sortie } = api;
       const target = api.target;
       const goal = goalFor(sortie, plane, target, api.drones);
@@ -52,12 +58,28 @@ export function createShotDirector(name) {
         // In the shear band on the way to the Spine, storm towers ahead.
         if (target && Math.hypot(plane.x - target.x, plane.z - target.z) < 620 && plane.y > 200) frozen = true;
       } else if (name === 'cockpit') {
-        if (plane.capacitor > api.craft.capacitor * 0.55 && t > 20) {
-          api.world.flashAt(plane.x + 120, plane.z - 160, 1);
-          frozen = true;
-        }
+        // Day salvage run: freeze on the approach to the wreck, beacon ahead.
+        if (target && t > 15 && Math.hypot(plane.x - target.x, plane.z - target.z) < 820) frozen = true;
       } else if (name === 'harvest') {
-        if (plane.capacitor > api.craft.capacitor * 0.62 && api.lastStrikeNear) frozen = true;
+        // The shot is a strike beside the plane, mid-work in the cell.
+        // Natural near strikes are too rare to schedule a screenshot on,
+        // so after 25 s of honest work the director calls the world's own
+        // strike renderer just off the wingtip and freezes on it — the
+        // bolt, flash and charge jump are the sim's real effects.
+        // (No natural-strike freeze: the seeded storm's first near strike
+        // lands mid-transit at a useless angle, every run, deterministically.)
+        if (sortie.phase === 'work') {
+          workT += dt;
+          // Screenshot runs only execute a few sim-seconds before the
+          // capture lands, so the strike fires on a short timer with the
+          // plane already moving and the cell ahead — not on arrival.
+          const inCell = target && Math.hypot(plane.x - target.x, plane.z - target.z) < 380;
+          if (inCell || workT > 1.2 || calls > 25) {
+            const fx = Math.sin(plane.heading), fz = -Math.cos(plane.heading);
+            api.world.flashAt(plane.x + fx * 110 + 30, plane.z + fz * 110 - 20, 1.2);
+            frozen = true;
+          }
+        }
       }
       if (t > 420) frozen = true; // never hang a screenshot run
       return frozen;

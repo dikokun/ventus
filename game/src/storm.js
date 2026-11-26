@@ -4,7 +4,7 @@
 // capacitor charge — with the bible's teeth: a strike that lands on a full
 // capacitor arcs over and burns the hull, unless an arc-shunt eats it.
 
-import { shearAt, chargeAt } from './data/zones.js';
+import { shearAt, chargeAt, heightAt } from './data/zones.js';
 import { STORM } from './config.js';
 
 export function createStorm(rng) {
@@ -12,7 +12,7 @@ export function createStorm(rng) {
   return {
     // plane: {x,y,z,airborne}; craft: fitted stats; state: plane state (capacitor read)
     step(dt, plane, craft, state, t) {
-      const shear = shearAt(plane.x, plane.z, t);
+      const shear = shearAt(plane.x, plane.z, t, Math.max(0, plane.y - heightAt(plane.x, plane.z)));
       const charge = chargeAt(plane.x, plane.z);
       const strikes = [];
       let arcOver = false;
